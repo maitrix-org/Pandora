@@ -22,7 +22,7 @@ We introduce Pandora, a step towards a General World Model (GWM) that:
 
 ## News
 - __[2024/05/23]__ Release the model and inference code.
-- __[2024/05/23]__ Launch the project page and release the paper.
+- __[2024/05/23]__ Launch the website and release the paper.
 
 ## Setup
 ```shell
