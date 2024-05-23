@@ -16,13 +16,6 @@ We introduce Pandora, a step towards a General World Model (GWM) that:
 - __[2024/05/23]__ Release the model and inference code.
 - __[2024/05/23]__ Launch the project page and release the paper.
 
-## TODO List
-* [x] Model weights.
-* [x] Inference code.
-* [ ] Dataset.
-* [ ] Data processing pipeline.
-* [ ] Training code.
-
 ## Setup
 ```shell
 conda create -n pandora python=3.12.3 nvidia/label/cuda-12.1.0::cuda-toolkit -y
