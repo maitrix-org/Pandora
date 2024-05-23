@@ -1,4 +1,11 @@
-# Pandora: Towards General World Model with Natural Language Actions and Video States
+<p align="center">
+    <img src="./assets/logo.png" width="250"/>
+</p>
+<h2 align="center"> Pandora: Towards General World Model with Natural Language Actions and Video States</h2>
+
+We introduce Pandora, a step towards a General World Model (GWM) that:
+1. Simulates world states by generating videos across any domains
+2. Allows any-time control with actions expressed in natural language
 
 [[Project]](https://world-model.maitrix.org/)
 [[Paper]](https://world-model.maitrix.org/assets/pandora.pdf)
