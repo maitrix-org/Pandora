@@ -49,8 +49,3 @@ Then you can interact with the model through gradio interface.
   year={2024}
 }
 ```
-
-## Acknowledgement
-* [Dynamicrafter](https://github.com/Doubiiu/DynamiCrafter/tree/main): Animating Open-domain Images with Video Diffusion Priors
-  system.
-* [Chat-UniVi](https://github.com/PKU-YuanGroup/Chat-UniVi): Unified Visual Representation Empowers Large Language Models with Image and Video Understanding.
