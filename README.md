@@ -7,6 +7,8 @@ We introduce Pandora, a step towards a General World Model (GWM) that:
 1. Simulates world states by generating videos across any domains
 2. Allows any-time control with actions expressed in natural language
 
+**Please refer to [world-model.ai](world-model.ai) for results.**
+
 [[Website]](https://world-model.maitrix.org/)
 [[Paper]](https://world-model.maitrix.org/assets/pandora.pdf)
 [[Model]](https://huggingface.co/maitrix-org/Pandora)
