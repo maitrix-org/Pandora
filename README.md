@@ -39,7 +39,7 @@ bash build_envs.sh
 
 ## Inference
 ### Gradio Demo
-1. Download the model checkpoint from [Hugging Face](https://huggingface.co/maitrix-org/Pandora)
+1. Download the model checkpoint from [Hugging Face](https://huggingface.co/maitrix-org/Pandora). (***We currently hide the model weights due to data license issue. We will re-open the weights soon after we figure this out.***)
 2. Run the commands on your terminal
 ```shell
 CUDA_VISIBLE_DEVICES={cuda_id} python gradio_app.py  --ckpt_path {path_to_ckpt}
