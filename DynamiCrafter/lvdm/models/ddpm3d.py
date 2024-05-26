@@ -1020,10 +1020,10 @@ class LatentDiffusion(DDPM):
             for n, p in self.model.named_parameters():
                 if n not in self.empty_paras:
                     p.requires_grad = False
-            mainlogger.info(f"@Training [{len(params)}] Empty Paramters ONLY.")
+            mainlogger.info(f"@Training [{len(params)}] Empty Parameters ONLY.")
         else:
             params = list(self.model.parameters())
-            mainlogger.info(f"@Training [{len(params)}] Full Paramters.")
+            mainlogger.info(f"@Training [{len(params)}] Full Parameters.")
                
         if self.learn_logvar:
             mainlogger.info('Diffusion model optimizing logvar')
