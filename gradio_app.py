@@ -2,9 +2,9 @@ import os
 # os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 
-# set TMP_DIR to avoid permission problem
+# set TMPDIR to avoid permission problem
 current_directory = os.getcwd()
-os.environ['TMP_DIR'] = os.path.join(current_directory,'.cache')
+os.environ['TMPDIR'] = os.path.join(current_directory,'.cache')
 
 import torch
 import gradio as gr
