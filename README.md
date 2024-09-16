@@ -24,14 +24,14 @@ We introduce Pandora, a step towards a General World Model (GWM) that:
 
 ## Setup
 ```shell
-conda create -n pandora python=3.12.3 nvidia/label/cuda-12.1.0::cuda-toolkit -y
+conda create -n pandora python=3.11.0 nvidia/label/cuda-12.1.0::cuda-toolkit -y
 conda activate pandora
 pip install torch torchvision torchaudio
 bash build_envs.sh  
 ```
 If your GPU doesn't support CUDA 12.1, you can also install with CUDA 11.8:
 ```shell
-conda create -n pandora python=3.12.3 nvidia/label/cuda-11.8.0::cuda-toolkit -y 
+conda create -n pandora python=3.11.0 nvidia/label/cuda-11.8.0::cuda-toolkit -y 
 conda activate pandora
 pip install torch torchvision torchaudio
 bash build_envs.sh  
