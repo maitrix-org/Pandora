@@ -93,6 +93,9 @@ class ChatWM:
         
         self.pixel_values = batch['pixel_values']
         self.diffusion_cond_image = batch['diffusion_cond_image']
+        video_dir = os.path.dirname(self.video_path[1])
+        if not os.path.exists(video_dir):
+            os.makedirs(video_dir)
         self.process_generated_video(videos, fps=8, video_path=self.video_path[1])
 
         return self.video_path[1], self.video_path[1], gr.update(interactive=True, value='🔄 Re-do Action 1'), gr.update(interactive=True),  gr.update(interactive=False) 
