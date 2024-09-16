@@ -2,17 +2,18 @@ import os
 # os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 
-import torch
+# set TMP_DIR to avoid permission problem
+current_directory = os.getcwd()
+os.environ['TMP_DIR'] = os.path.join(current_directory,'.cache')
+
 import torch
 import gradio as gr
 from demo_utils import *
 args = parse_args()
 torch_device = "cuda" if torch.cuda.is_available() else "cpu"
 
-if args.ckpt_path:
-    repo_id = args.ckpt_path
-else:
-    repo_id = find_latest_checkpoint()
+
+repo_id = args.ckpt_path
 ckpt_name = repo_id.split('/')[-1]
 print(f'Load ckpt: {ckpt_name}')
 if args.debug:
