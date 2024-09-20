@@ -162,7 +162,8 @@ class ChatWM:
 
         self.cat_videos = self.cat_videos[:self.current_round -1]
         self.text_list = self.text_list[:self.current_round -1]
-        self.text = ''.join(self.text_list) +  "<image>" * 16 + text_input + "[IMG_P]" * 64
+        curr_text = "<image>" * 16 + text_input + "[IMG_P]" * 64
+        self.text = ''.join(self.text_list) + curr_text        
         video_path = self.video_path[self.current_round].substitute(text=format_text_input(text_input), seed=random_seed)
         batch = self.tokenizer(self.text, return_tensors="pt", add_special_tokens=False)
         batch.update(self.process_img_from_output(self.cat_videos[-1], self.pixel_values))
@@ -171,6 +172,7 @@ class ChatWM:
         videos = self.model.generate(**batch,
                             tokenizer=self.tokenizer,
                             **self.generate_kwargs)
+        self.text_list.append(curr_text)
         self.cat_videos.append(videos)
         self.pixel_values = batch['pixel_values']
         self.process_generated_video(videos, fps=8, video_path=video_path)
