@@ -1,0 +1,12 @@
+__pycache__
+*.pyc
+*.mp4
+*.pth
+*.pt
+*.pkl
+*.pth.tar
+*.tar
+*.tar.gz
+*.zip
+*.rar
+*.7z

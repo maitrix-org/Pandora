@@ -1,4 +1,3 @@
-
 import torch
 import torchvision.transforms as transforms
 from transformers import AutoTokenizer
@@ -7,11 +6,17 @@ from PIL import Image
 import torch
 import torchvision
 import gradio as gr
+import random
 from argparse import ArgumentParser
 import os, re
 import uuid
+from string import Template
 torch_device = "cuda" if torch.cuda.is_available() else "cpu"
+MAX_SEED=10000
+video_output_template = Template('./video_output/${text}_seed=${seed}_round=${round_num}_${uuid}.mp4')
 
+H = 320
+W = 512
 
 def parse_args():
     ''''input parameters'''
@@ -26,19 +31,59 @@ def parse_args():
         "--debug",
         action='store_true'
     )
+    
+    parser.add_argument(
+        "--resolution",
+        type=tuple,
+        default=(H, W)
+    )
+    
     args = parser.parse_args()
     return args
 
 def dynamic_resize(img):
     '''resize frames'''
     width, height = img.size
-    t_width, t_height = 512, 320
+    t_width, t_height = W, H
     k = min(t_width/width, t_height/height)
     new_width, new_height = int(width*k), int(height*k)
     pad = (t_width-new_width)//2, (t_height-new_height)//2, (t_width-new_width+1)//2, (t_height-new_height+1)//2, 
     trans = transforms.Compose([transforms.Resize((new_height, new_width)),
                                 transforms.Pad(pad)])
     return trans(img)
+
+def set_seed(seed):
+    random.seed(seed)
+    gr.Warning(f"Random Seed = {seed}")
+    if seed > MAX_SEED:
+        gr.Warning(f"Seed value {seed} is too large. Maximum allowed value is {MAX_SEED}.")
+        return MAX_SEED
+    elif seed < 0:
+        gr.Warning("Seed value must be non-negative.")
+        return 0
+    
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    os.environ['PYTHONHASHSEED'] = str(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    return seed
+
+def format_text_input(text_input):
+    """
+    Separate text_input with underscore, get rid of any non-alphanumeric characters
+    except underscores.
+    """
+    
+    under_score = '_'
+    text_input = text_input.replace(' ', under_score)
+    text_input = re.sub(r'[^a-zA-Z0-9_]', '', text_input)
+    
+    # check length, if is too long, truncate
+    if len(text_input) > 50:
+        text_input = text_input[:50]
+    return text_input
 
 class ChatWM:
     def __init__(self, model, processor):
@@ -59,13 +104,13 @@ class ChatWM:
         self.pixel_values = None
         self.diffusion_cond_image = None
         self.current_round = 0
-        self.video_path = [f'./video_output/video_output_gradio_round{i}_{uuid.uuid4()}.mp4' for i in range(10)]
+        self.video_path = [Template(video_output_template.safe_substitute(round_num=i, uuid=uuid.uuid4())) for i in range(10)]
         self.text_list = []
 
         
 
     def generate_video(self, image, text_input, ddim_steps, fs, n_samples,
-                       unconditional_guidance_scale, ddim_eta,
+                       unconditional_guidance_scale, ddim_eta, random_seed, 
                        progress=gr.Progress()):
         self.generate_kwargs['ddim_steps'] = ddim_steps
         self.generate_kwargs['fs'] = fs
@@ -76,10 +121,12 @@ class ChatWM:
         self.generate_kwargs['round_info'] = [1,1]
         self.current_round = 1
         if self.model == None: # debug mode
-            return self.video_path[0]
+            return self.video_path[0].safe_substitute(text=format_text_input(text_input), seed=random_seed)
          
         self.text = self.tokenizer.bos_token + "<image> " + text_input + "[IMG_P]" * 64
-        
+        print(text_input)
+        video_path = self.video_path[1].safe_substitute(text=format_text_input(text_input), seed=random_seed)
+        print(video_path)
         if type(image) == np.ndarray:
             image = Image.fromarray(image)
         batch = self.tokenizer(self.text, return_tensors="pt", add_special_tokens=False)
@@ -93,15 +140,14 @@ class ChatWM:
         
         self.pixel_values = batch['pixel_values']
         self.diffusion_cond_image = batch['diffusion_cond_image']
-        video_dir = os.path.dirname(self.video_path[1])
-        if not os.path.exists(video_dir):
-            os.makedirs(video_dir)
-        self.process_generated_video(videos, fps=8, video_path=self.video_path[1])
-
-        return self.video_path[1], self.video_path[1], gr.update(interactive=True, value='🔄 Re-do Action 1'), gr.update(interactive=True),  gr.update(interactive=False) 
+        self.process_generated_video(videos, fps=8, video_path=video_path)
+        # new_seed = random.randint(0,MAX_SEED)
+        # print("getting new seed, ", new_seed)
+        set_seed(random_seed) # set again to make sure the seed is the same
+        return video_path, gr.update(value=video_path, label=f'Action {self.current_round}, seed:{random_seed}'), gr.update(interactive=True, value=f'🔄 Re-do Action 1'), gr.update(interactive=True),  gr.update(interactive=False)
 
     def generate_video_next_round(self, text_input, ddim_steps, fs, n_samples,
-                       unconditional_guidance_scale, ddim_eta,
+                       unconditional_guidance_scale, ddim_eta, random_seed,
                        progress=gr.Progress()):
         self.generate_kwargs['ddim_steps'] = ddim_steps
         self.generate_kwargs['fs'] = fs
@@ -112,12 +158,13 @@ class ChatWM:
         self.generate_kwargs['round_info'] = [1,1]
         
         if self.model == None: # debug mode
-            return self.video_path[0]
+            return self.video_path[0].safe_substitute(text=format_text_input(text_input), seed=random_seed)
 
         self.cat_videos = self.cat_videos[:self.current_round -1]
         self.text_list = self.text_list[:self.current_round -1]
-        self.text = ''.join(self.text_list) +  "<image>" * 16 + text_input + "[IMG_P]" * 64
-
+        curr_text = "<image>" * 16 + text_input + "[IMG_P]" * 64
+        self.text = ''.join(self.text_list) + curr_text        
+        video_path = self.video_path[self.current_round].substitute(text=format_text_input(text_input), seed=random_seed)
         batch = self.tokenizer(self.text, return_tensors="pt", add_special_tokens=False)
         batch.update(self.process_img_from_output(self.cat_videos[-1], self.pixel_values))
         batch['diffusion_cond_image'] = self.diffusion_cond_image
@@ -125,35 +172,38 @@ class ChatWM:
         videos = self.model.generate(**batch,
                             tokenizer=self.tokenizer,
                             **self.generate_kwargs)
+        self.text_list.append(curr_text)
         self.cat_videos.append(videos)
         self.pixel_values = batch['pixel_values']
-        self.process_generated_video(videos, fps=8, video_path=self.video_path[self.current_round])
-        self.process_generated_video_multi(self.cat_videos,fps=8, video_path=self.video_path[0],num_round=len(self.cat_videos))
-        return self.video_path[0], self.video_path[self.current_round], gr.update(interactive=True, value=f'🔄 Re-do Action {self.current_round}'), gr.update(interactive=True) # ,  self.video_path[0]
+        self.process_generated_video(videos, fps=8, video_path=video_path)
+        self.process_generated_video_multi(self.cat_videos,fps=8, video_path=video_path,num_round=len(self.cat_videos))
+        # new_seed = random.randint(0,MAX_SEED)
+        set_seed(random_seed) # set again to make sure the seed is the same
+        return video_path, gr.update(value=video_path, label=f'Action {self.current_round}, seed:{random_seed}') , gr.update(interactive=True, value=f'🔄 Re-do Action {self.current_round}'), gr.update(interactive=True) # ,  self.video_path[0]
 
     def generate_video_next_round2(self,text_input, ddim_steps, fs, n_samples,
-                       unconditional_guidance_scale, ddim_eta,
+                       unconditional_guidance_scale, ddim_eta, random_seed,
                        progress=gr.Progress()):
         self.current_round = 2
-        return self.generate_video_next_round(text_input, ddim_steps, fs, n_samples, unconditional_guidance_scale, ddim_eta, progress)
+        return self.generate_video_next_round(text_input, ddim_steps, fs, n_samples, unconditional_guidance_scale, ddim_eta, random_seed, progress)
 
     def generate_video_next_round3(self,text_input, ddim_steps, fs, n_samples,
-                       unconditional_guidance_scale, ddim_eta,
+                       unconditional_guidance_scale, ddim_eta, random_seed,
                        progress=gr.Progress()):
         self.current_round = 3
-        return self.generate_video_next_round(text_input, ddim_steps, fs, n_samples, unconditional_guidance_scale, ddim_eta, progress)
+        return self.generate_video_next_round(text_input, ddim_steps, fs, n_samples, unconditional_guidance_scale, ddim_eta, random_seed, progress)
 
     def generate_video_next_round4(self,text_input, ddim_steps, fs, n_samples,
-                       unconditional_guidance_scale, ddim_eta,
+                       unconditional_guidance_scale, ddim_eta, random_seed,
                        progress=gr.Progress()):
         self.current_round = 4
-        return self.generate_video_next_round(text_input, ddim_steps, fs, n_samples, unconditional_guidance_scale, ddim_eta, progress)
+        return self.generate_video_next_round(text_input, ddim_steps, fs, n_samples, unconditional_guidance_scale, ddim_eta, random_seed, progress)
 
     def generate_video_next_round5(self,text_input, ddim_steps, fs, n_samples,
-                       unconditional_guidance_scale, ddim_eta,
+                       unconditional_guidance_scale, ddim_eta, random_seed,
                        progress=gr.Progress()):
         self.current_round = 5
-        return self.generate_video_next_round(text_input, ddim_steps, fs, n_samples, unconditional_guidance_scale, ddim_eta, progress)
+        return self.generate_video_next_round(text_input, ddim_steps, fs, n_samples, unconditional_guidance_scale, ddim_eta, random_seed, progress)
 
     def generate_video_mutliround(self, image, text_input, ddim_steps, fs, n_samples,
                        unconditional_guidance_scale, ddim_eta,num_round=2, video_path=f'./video_output/video_output_gradio_multiturn_{uuid.uuid4()}.mp4',
@@ -281,12 +331,12 @@ class ChatWM:
 def load_wm(repo_id,model=None):
     '''load model, image processor and tokenizer'''
 
-    from model_demo import WorldModel, WorldModelConfig
+    from model import WorldModel, WorldModelConfig
     ckpt_name = repo_id.split('/')[-1]
     print(f"Start to load model, current ckpt is: {ckpt_name}")
     config = WorldModelConfig.from_pretrained(repo_id)
     config.reset_training_args(do_alignment=False,
-                           dynamicrafter='./DynamiCrafter/configs/inference_512_v1.0.yaml',
+                           dynamicrafter=f'./DynamiCrafter/configs/inference_{W}_v1.0.yaml',
                            )
     if model == None:
         model = WorldModel.from_pretrained(repo_id, config=config, ignore_mismatched_sizes=True)
@@ -312,7 +362,7 @@ def load_wm(repo_id,model=None):
 
 
 
-def init_sliders():
+def init_sliders(seed=2):
     fs = gr.Slider(
         minimum=1,
         maximum=30,
@@ -361,9 +411,19 @@ def init_sliders():
         interactive=True,
         label="round",
     )
-    return fs, n_samples, unconditional_guidance_scale, ddim_steps, ddim_eta, num_round
 
-def gradio_reset():
+    random_seed = gr.Number(
+        value=seed,
+        label=f"seed: [0,{MAX_SEED}]",
+        precision=0,
+        step=1,
+    )
+    
+    return fs, n_samples, unconditional_guidance_scale, ddim_steps, ddim_eta, num_round, random_seed
+
+def gradio_reset(random_seed=None):
+    if random_seed:
+        set_seed(random_seed)
     return (
         gr.update(interactive=True, value='💭 Action 1'), #button
         gr.update(interactive=False, value='💭 Action 2'),
